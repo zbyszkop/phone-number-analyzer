@@ -19,6 +19,7 @@ import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
+import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,33 +35,77 @@ public class PhoneNumberFilterTest {
     
     private Analyzer analyzerUnderTest = new PhoneNumberAnalyzer(MATCH_VERSION);
     private IndexWriterConfig config;
+    private IndexWriter writer;
 
     @Before 
-    public void setUp() {
+    public void setUp() throws IOException {
+        prepareIndexer(analyzerUnderTest);
+    }
+
+    private void prepareIndexer(Analyzer analyzer) throws IOException {
         index = new RAMDirectory();
 
-        config = new IndexWriterConfig(MATCH_VERSION, analyzerUnderTest);
+        config = new IndexWriterConfig(MATCH_VERSION, analyzer);
 
+        writer = new IndexWriter(index, config);
     }
-    
+
     @Test
-    public void shouldIndexPolishPhoneNumbers() throws IOException, ParseException {
-
-        IndexWriter w = new IndexWriter(index, config);
-
-        addDoc(w, "maeph", "+48555781744");
-        w.close();
-
+    public void shouldAllowSearchingByPolishNumbers() throws ParseException, IOException {
+        //given
+        addDoc(writer, "maeph", "+48555781744");
+        writer.close();
+        //when
         Query q = new QueryParser(MATCH_VERSION, "phone", new PhoneNumberAnalyzer(MATCH_VERSION)).parse("555781744");
 
         TopScoreDocCollector collector = TopScoreDocCollector.create(1, true);
         getIndexSearcher().search(q, collector);
-        ScoreDoc[] hits = collector.topDocs().scoreDocs;
-        
-        Document doc = getIndexSearcher().doc(hits[0].doc);
-        Assert.assertEquals("maeph", doc.get("name"));
+        //then
+        Assert.assertEquals("maeph", getFirstDoc(collector).get("name"));
         
     }
+
+    @Test
+    public void shouldNotAllowSearchingByNonPolishNumbers() throws ParseException, IOException {
+        //given
+        addDoc(writer, "maeph", "555781744");
+        writer.close();
+        //when
+        Query q = new QueryParser(MATCH_VERSION, "phone", new PhoneNumberAnalyzer(MATCH_VERSION)).parse("+47555781744");
+
+        TopScoreDocCollector collector = TopScoreDocCollector.create(1, true);
+        getIndexSearcher().search(q, collector);
+        
+        //then
+        Assert.assertTrue(collector.getTotalHits() == 0);
+
+    }
+
+    @Test
+    public void shouldAllowSearchingByNonPolishNumbersWhenLocaleSet() throws ParseException, IOException {
+        PhoneNumberAnalyzer analyzer = new PhoneNumberAnalyzer(MATCH_VERSION, "GB");
+        prepareIndexer(analyzer);
+
+        //given
+        addDoc(writer, "maeph", "20749990000");
+        writer.close();
+        //when
+        Query q = new QueryParser(MATCH_VERSION, "phone", analyzer).parse("+4420749990000");
+
+        TopScoreDocCollector collector = TopScoreDocCollector.create(1, true);
+        getIndexSearcher().search(q, collector);
+
+        //then
+        Assert.assertEquals("maeph", getFirstDoc(collector).get("name"));
+
+    }
+
+    private Document getFirstDoc(TopScoreDocCollector collector) throws IOException {
+        ScoreDoc[] hits = collector.topDocs().scoreDocs;
+
+        return getIndexSearcher().doc(hits[0].doc);
+    }
+
 
     private IndexSearcher getIndexSearcher() throws IOException {
         IndexReader reader = DirectoryReader.open(index);
