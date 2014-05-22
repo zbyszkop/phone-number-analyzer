@@ -9,9 +9,7 @@ import org.apache.lucene.util.Version;
 
 import java.io.Reader;
 
-/**
- * Created by mephi_000 on 22.05.14.
- */
+
 public class PhoneNumberAnalyzer extends Analyzer {
     private Version matchVersion;
 

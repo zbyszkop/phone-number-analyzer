@@ -22,13 +22,9 @@ import org.apache.lucene.util.Version;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import sun.plugin.com.AmbientProperty;
 
 import java.io.IOException;
 
-/**
- * Created by mephi_000 on 22.05.14.
- */
 public class PhoneNumberFilterTest {
 
 

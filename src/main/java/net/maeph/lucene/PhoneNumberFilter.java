@@ -9,9 +9,7 @@ import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 
 import java.io.IOException;
 
-/**
- * Created by mephi_000 on 22.05.14.
- */
+
 public final class PhoneNumberFilter extends TokenFilter {
 
 
