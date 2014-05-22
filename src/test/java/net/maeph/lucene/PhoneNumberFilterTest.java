@@ -20,7 +20,9 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.Version;
 import org.junit.Assert;
+import org.junit.Before;
 import org.junit.Test;
+import sun.plugin.com.AmbientProperty;
 
 import java.io.IOException;
 
@@ -30,32 +32,43 @@ import java.io.IOException;
 public class PhoneNumberFilterTest {
 
 
+    
     public static final Version MATCH_VERSION = Version.LUCENE_47;
+    private Directory index;
+    
+    private Analyzer analyzerUnderTest = new PhoneNumberAnalyzer(MATCH_VERSION);
+    private IndexWriterConfig config;
 
+    @Before 
+    public void setUp() {
+        index = new RAMDirectory();
+
+        config = new IndexWriterConfig(MATCH_VERSION, analyzerUnderTest);
+
+    }
+    
     @Test
     public void shouldIndexPolishPhoneNumbers() throws IOException, ParseException {
 
-
-        Analyzer analyzer = new PhoneNumberAnalyzer(MATCH_VERSION);
-        Directory index = new RAMDirectory();
-
-        IndexWriterConfig config = new IndexWriterConfig(MATCH_VERSION, analyzer);
-
         IndexWriter w = new IndexWriter(index, config);
-        addDoc(w, "maeph", "0048555781744");
+
+        addDoc(w, "maeph", "+48555781744");
         w.close();
 
-        String querystr = "maeph";
-        Query q = new QueryParser(MATCH_VERSION, "name", new StandardAnalyzer(MATCH_VERSION)).parse(querystr);
+        Query q = new QueryParser(MATCH_VERSION, "phone", new PhoneNumberAnalyzer(MATCH_VERSION)).parse("555781744");
 
-        IndexReader reader = DirectoryReader.open(index);
-        IndexSearcher searcher = new IndexSearcher(reader);
         TopScoreDocCollector collector = TopScoreDocCollector.create(1, true);
-        searcher.search(q, collector);
+        getIndexSearcher().search(q, collector);
         ScoreDoc[] hits = collector.topDocs().scoreDocs;
-        Document doc = searcher.doc(hits[0].doc);
-        Assert.assertEquals("+48555781744", doc.get("phone"));
         
+        Document doc = getIndexSearcher().doc(hits[0].doc);
+        Assert.assertEquals("maeph", doc.get("name"));
+        
+    }
+
+    private IndexSearcher getIndexSearcher() throws IOException {
+        IndexReader reader = DirectoryReader.open(index);
+        return new IndexSearcher(reader);
     }
 
     private static void addDoc(IndexWriter w, String name, String phone) throws IOException {
